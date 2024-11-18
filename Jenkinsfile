@@ -1,31 +1,42 @@
 pipeline {
     agent any
+
     environment {
-        SONARQUBE = 'SonarQube' // SonarQube server name in Jenkins
-        SONAR_TOKEN = 'sqp_a801f03d349994f2882a780cece76ada1364f24b' // Hardcoded token (not recommended for production)
+        SONARQUBE = 'sonarserver'  // Use the name configured earlier
     }
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
+
+        stage('Build') {
+            steps {
+                // Add your build commands here (e.g., for Maven, Gradle, or npm)
+                sh 'mvn clean install'  // Example for Maven
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // Run SonarQube analysis with hardcoded token
-                    sh """
-                        mvn sonar:sonar \
-                            -Dsonar.projectKey=my_project_key \
-                            -Dsonar.host.url=http://localhost:9000 \
-                            -Dsonar.login=${env.SONAR_TOKEN}
-                    """
+                    // Trigger the SonarQube scan
+                    def scannerHome = tool 'SonarQube Scanner'
+                    withSonarQubeEnv(SONARQUBE) {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
                 }
             }
         }
-        stage('Build') {
+
+        stage('Quality Gate') {
             steps {
-                echo 'Building...'
+                script {
+                    // Wait for the analysis to complete and check the Quality Gate status
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
     }
